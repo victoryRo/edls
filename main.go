@@ -3,13 +3,17 @@ package main
 import (
 	"flag"
 	"fmt"
-	"golang.org/x/exp/constraints"
 	"os"
+	"path"
 	"regexp"
 	"runtime"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/AJRDRGZ/fileinfo"
+	"github.com/fatih/color"
+	"golang.org/x/exp/constraints"
 )
 
 func main() {
@@ -125,7 +129,7 @@ func printList(fs []file, numRegisters int) {
 
 		fmt.Printf("%s %s %s %8d %v %s %s%s\n",
 			f.mode, f.userName, f.groupName, f.size, f.modificationTime.Format(time.Stamp),
-			style.icon, f.name, style.symbol,
+			style.icon, setColor(f.name, style.color), style.symbol,
 		)
 	}
 }
@@ -139,13 +143,15 @@ func getFile(f os.DirEntry, isHidden bool) (file, error) {
 		return file{}, fmt.Errorf("f.Info(): %v", err)
 	}
 
+	userName, groupName := fileinfo.GetUserAndGroup(info.Sys())
+
 	// create a new file object with the information retrieved from the file entry.
 	result := file{
 		name:             f.Name(),
 		isDir:            f.IsDir(),
 		isHidden:         isHidden,
-		userName:         "user",
-		groupName:        "group",
+		userName:         userName,
+		groupName:        groupName,
 		size:             info.Size(),
 		modificationTime: info.ModTime(),
 		mode:             info.Mode().String(),
@@ -172,6 +178,25 @@ func setFile(f *file) {
 	default:
 		f.fileType = fileRegular
 	}
+}
+
+func setColor(namefile string, styleColor color.Attribute) string {
+	switch styleColor {
+	case color.FgBlue:
+		return blue(namefile)
+	case color.FgGreen:
+		return green(namefile)
+	case color.FgRed:
+		return red(namefile)
+	case color.FgMagenta:
+		return magenta(namefile)
+	case color.FgCyan:
+		return cyan(namefile)
+	default:
+		return yellow(namefile)
+	}
+
+	//return namefile
 }
 
 // isLink returns true if the file is a symbolic link.
@@ -214,5 +239,11 @@ func isImage(f file) bool {
 }
 
 func isHidden(filename, basePath string) bool {
-	return strings.HasPrefix(filename, ".")
+	filePath := filename
+
+	if runtime.GOOS == Windows {
+		filePath = path.Join(basePath, filename)
+	}
+
+	return fileinfo.IsHidden(filePath)
 }
